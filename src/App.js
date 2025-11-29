@@ -1,23 +1,139 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function App() {
+  const [topic, setTopic] = useState('');
+  const [tone, setTone] = useState('inspirational');
+  const [quote, setQuote] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const API_KEY = process.env.REACT_APP_GEMINI_KEY;
+
+  console.log(API_KEY);
+
+  const generateQuote = async () => {
+    if (!topic) {
+      setError('Please enter a topic first.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setQuote('');
+
+    try {
+      // 1. Initialize Gemini Client
+      const genAI = new GoogleGenerativeAI(API_KEY);
+
+
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+
+      // 3. Create the prompt
+      const prompt = `Generate a creative, short quote about "${topic}" in a "${tone}" tone. 
+      Format the output exactly like this: "The Quote Content" - Author Name. 
+      Do not add any other text.`;
+
+      // 4. Generate Content
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      setQuote(text);
+
+    } catch (err) {
+      setError('Error: ' + err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="min-vh-100 d-flex align-items-center justify-content-center bg-dark">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-md-8 col-lg-6">
+
+            <div className="card shadow-lg border-0">
+              <div className="card-header bg-warning text-dark text-center">
+                <h3 className="mb-0 fw-bold">⚡ Gemini Quote Gen [DOS]</h3>
+              </div>
+
+              <div className="card-body p-5">
+
+                {/* Topic Input */}
+                <div className="mb-3">
+                  <label className="form-label fw-bold text-muted">Topic</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-lg"
+                    placeholder="e.g. Resilience, Space, Pizza..."
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                  />
+                </div>
+
+                {/* Tone Selector */}
+                <div className="mb-4">
+                  <label className="form-label fw-bold text-muted">Tone</label>
+                  <select
+                    className="form-select form-select-lg"
+                    value={tone}
+                    onChange={(e) => setTone(e.target.value)}
+                  >
+                    <option value="inspirational">Inspirational</option>
+                    <option value="sarcastic">Sarcastic</option>
+                    <option value="shakespearean">Shakespearean</option>
+                    <option value="futuristic">Futuristic</option>
+                    <option value="funny">Funny</option>
+                  </select>
+                </div>
+
+                {/* Generate Button */}
+                <div className="d-grid gap-2">
+                  <button
+                    className="btn btn-dark btn-lg"
+                    onClick={generateQuote}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span>
+                        Thinking...
+                      </>
+                    ) : 'Generate with Gemini'}
+                  </button>
+                </div>
+
+                <hr className="my-4" />
+
+                {/* Error Message */}
+                {error && <div className="alert alert-danger">{error}</div>}
+
+                {/* Quote Display */}
+                {quote && (
+                  <div className="card bg-light border-start border-5 border-warning">
+                    <div className="card-body">
+                      <figure className="text-center mb-0">
+                        <blockquote className="blockquote">
+                          <p className="fs-5 fst-italic">{quote}</p>
+                        </blockquote>
+                        <figcaption className="blockquote-footer mt-2">
+                          Generated by <cite title="Source Title">Gemini AI</cite>
+                        </figcaption>
+                      </figure>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

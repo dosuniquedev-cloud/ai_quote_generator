@@ -1,0 +1,4 @@
+npx create-react-app ai-quote-generator
+cd ai-quote-generator
+npm install bootstrap
+npm start
