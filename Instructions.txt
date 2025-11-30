@@ -2,3 +2,21 @@ npx create-react-app ai-quote-generator
 cd ai-quote-generator
 npm install bootstrap
 npm start
+
+
+npm install firebase
+npm install -g firebase-tools
+
+npm install html2canvas
+
+
+git push : 
+
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/quote-generator.git
+git push -u origin main
+
+
