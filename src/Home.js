@@ -157,7 +157,7 @@ function Home() {
                     <div className="card shadow-lg border-0">
 
                         <div className="card-header bg-gradient bg-warning text-dark text-center p-3">
-                            <h3 className="mb-0 fw-bold">🌏 AI Quote Generator</h3>
+                            <h3 className="mb-0 fw-bold">🌏 AI Quote Generator [DOS]</h3>
                         </div>
 
                         <div className="card-body p-4 p-md-5">
@@ -188,6 +188,26 @@ function Home() {
                                     <option value="poetic">Poetic</option>
                                     <option value="funny">Funny</option>
                                     <option value="philosophical">Philosophical</option>
+                                    <option value="romantic">Romantic</option>
+                                    <option value="melancholic">Melancholic</option>
+                                    <option value="nostalgic">Nostalgic</option>
+                                    <option value="optimistic">Optimistic</option>
+                                    <option value="heartbroken">Heartbroken</option>
+                                    <option value="sarcastic">Sarcastic</option>
+                                    <option value="witty">Witty</option>
+                                    <option value="dark_humor">Dark Humor</option>
+                                    <option value="dad_joke">Dad Joke Style</option>
+                                    <option value="satirical">Satirical</option>
+                                    <option value="motivational">Motivational</option>
+                                    <option value="business">Business & Success</option>
+                                    <option value="mindfulness">Mindfulness & Zen</option>
+                                    <option value="stoic">Stoic</option>
+                                    <option value="fitness">Fitness & Health</option>
+                                    <option value="futuristic">Cyberpunk / Futuristic</option>
+                                    <option value="shakespearean">Shakespearean</option>
+                                    <option value="minimalist">Minimalist (Short)</option>
+                                    <option value="mysterious">Mysterious</option>
+                                    <option value="dramatic">Dramatic</option>
                                 </select>
                             </div>
 
