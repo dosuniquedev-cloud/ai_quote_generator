@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { collection, query, orderBy, getDocs } from "firebase/firestore";
+import React, { useState, useEffect } from 'react';
+import { collection, query, orderBy, getDocs, limit, startAfter } from "firebase/firestore";
 import { db } from './firebase';
-import html2canvas from 'html2canvas'; // 1. Import this
+import html2canvas from 'html2canvas';
 
 function History() {
     // --- AUTH STATE ---
@@ -12,11 +12,31 @@ function History() {
     // --- DATA STATE ---
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [lastDoc, setLastDoc] = useState(null); // Keeps track of where we left off
+    const [hasMore, setHasMore] = useState(true); // If there is more data to load
 
     // --- VIEW STATE ---
-    const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
+    const [viewMode, setViewMode] = useState('grid'); // Default to Grid (Wall)
 
     const SECRET_PASSWORD = process.env.REACT_APP_ADMIN_PASSWORD || "admin123";
+
+    // --- SCROLL LISTENER ---
+    useEffect(() => {
+        const handleScroll = () => {
+            // Check if user has scrolled to the bottom of the page
+            if (
+                window.innerHeight + document.documentElement.scrollTop + 50 >= // Buffer of 50px
+                document.documentElement.scrollHeight
+            ) {
+                if (!loading && hasMore && isAuthenticated) {
+                    fetchMoreHistory();
+                }
+            }
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [loading, hasMore, isAuthenticated, lastDoc]); // Re-run effect when these change
 
     // --- ACTIONS ---
     const handleLogin = (e) => {
@@ -24,29 +44,65 @@ function History() {
         if (passwordInput === SECRET_PASSWORD) {
             setIsAuthenticated(true);
             setAuthError('');
-            fetchHistory();
+            fetchInitialHistory(); // Load first batch
         } else {
             setAuthError('❌ Incorrect Password');
             setPasswordInput('');
         }
     };
 
-    const fetchHistory = async () => {
+    // 1. Fetch First Batch (Reset)
+    const fetchInitialHistory = async () => {
         setLoading(true);
+        setHistory([]); // Clear existing
         try {
-            const q = query(collection(db, "generation_history"), orderBy("timestamp", "desc"));
+            // Fetch newest 12 items
+            const q = query(collection(db, "generation_history"), orderBy("timestamp", "desc"), limit(12));
             const querySnapshot = await getDocs(q);
+
             const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
             setHistory(data);
+            setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]); // Save the last item
+            setHasMore(querySnapshot.docs.length === 12); // If we got less than 12, no more data left
+
         } catch (error) { console.error("Error:", error); }
         finally { setLoading(false); }
     };
 
-    // --- NEW: Handle Download for a SPECIFIC card ---
-    const downloadCard = (elementId, topic) => {
-        const element = document.getElementById(elementId); // Find the specific card
-        if (!element) return;
+    // 2. Fetch Next Batch (Infinite Scroll)
+    const fetchMoreHistory = async () => {
+        if (!lastDoc) return; // Safety check
+        setLoading(true);
 
+        try {
+            // Start AFTER the last document we loaded
+            const q = query(
+                collection(db, "generation_history"),
+                orderBy("timestamp", "desc"),
+                startAfter(lastDoc),
+                limit(12)
+            );
+
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                const newData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                setHistory(prev => [...prev, ...newData]); // Add new items to the bottom
+                setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]); // Update last item
+
+                if (querySnapshot.docs.length < 12) setHasMore(false); // No more pages
+            } else {
+                setHasMore(false);
+            }
+        } catch (error) { console.error("Error fetching more:", error); }
+        finally { setLoading(false); }
+    };
+
+    const downloadCard = (elementId, topic) => {
+        const element = document.getElementById(elementId);
+        if (!element) return;
         html2canvas(element).then(canvas => {
             const link = document.createElement('a');
             link.download = `${topic}-${Date.now()}.png`;
@@ -55,10 +111,9 @@ function History() {
         });
     };
 
-    // --- NEW: Handle Copy ---
     const copyText = (text) => {
         navigator.clipboard.writeText(text);
-        alert("Text Copied!"); // Simple alert feedback
+        alert("Text Copied!");
     };
 
     // --- RENDER: LOGIN ---
@@ -86,7 +141,7 @@ function History() {
 
     // --- RENDER: MAIN ---
     return (
-        <div className="container mt-4">
+        <div className="container mt-4 mb-5">
 
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2 className="text-white">📜 Generation History</h2>
@@ -108,106 +163,96 @@ function History() {
                         className={`btn ${viewMode === 'grid' ? 'btn-warning fw-bold' : 'btn-dark text-white border-secondary'}`}
                         onClick={() => setViewMode('grid')}
                     >
-                        🖼️ Gallery View
+                        🖼️ Wall View
                     </button>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="text-center text-white"><div className="spinner-border text-warning"></div><p>Loading...</p></div>
-            ) : (
-                <>
-                    {/* --- VIEW 1: TABLE --- */}
-                    {viewMode === 'table' && (
-                        <div className="table-responsive">
-                            <table className="table table-dark table-striped table-hover rounded overflow-hidden shadow">
-                                <thead className="table-warning text-dark">
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Topic</th>
-                                        <th>Lang</th>
-                                        <th>Quote</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {history.map((item) => (
-                                        <tr key={item.id}>
-                                            <td className="text-nowrap text-secondary small">
-                                                {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'N/A'}
-                                            </td>
-                                            <td>{item.topic}</td>
-                                            <td>{item.language}</td>
-                                            <td style={{ whiteSpace: 'pre-wrap', minWidth: '300px' }}><small>{item.quote.substring(0, 100)}...</small></td>
-                                            <td>
-                                                <button className="btn btn-sm btn-outline-light me-1" onClick={() => copyText(item.quote)}>Copy</button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {history.length === 0 && <tr><td colSpan="5" className="text-center py-4">No history yet.</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+            {/* --- CONTENT --- */}
 
-                    {/* --- VIEW 2: GRID (HOME STYLE) --- */}
-                    {viewMode === 'grid' && (
-                        <div className="row g-4">
+            {/* VIEW 1: TABLE */}
+            {viewMode === 'table' && (
+                <div className="table-responsive">
+                    <table className="table table-dark table-striped table-hover rounded overflow-hidden shadow">
+                        <thead className="table-warning text-dark">
+                            <tr>
+                                <th>Date</th>
+                                <th>Topic</th>
+                                <th>Lang</th>
+                                <th>Quote</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             {history.map((item) => (
-                                <div className="col-md-6 col-lg-4" key={item.id}>
-
-                                    {/* WRAPPER: Used to group Card + Buttons */}
-                                    <div className="d-flex flex-column h-100">
-
-                                        {/* 
-                       THE CARD: This matches Home.js exactly.
-                       We give it a UNIQUE ID based on item.id so we can screenshot it.
-                    */}
-                                        <div
-                                            id={`card-${item.id}`}
-                                            className="card bg-light border-start border-5 border-warning p-4 shadow-sm h-100"
-                                        >
-                                            <figure className="text-center mb-0 d-flex flex-column justify-content-center h-100">
-                                                <blockquote className="blockquote">
-                                                    <p className="fs-5 fw-medium text-dark" style={{ whiteSpace: 'pre-line' }}>
-                                                        {item.quote}
-                                                    </p>
-                                                </blockquote>
-                                                <figcaption className="blockquote-footer mt-auto mb-0 pt-3">
-                                                    {item.topic} • {item.language} <br />
-                                                    <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                                                        {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : ''}
-                                                    </small>
-                                                </figcaption>
-                                            </figure>
-                                        </div>
-
-                                        {/* BUTTONS: Outside the card so they don't appear in the screenshot */}
-                                        <div className="d-flex gap-2 mt-2">
-                                            <button
-                                                className="btn btn-success btn-sm flex-fill fw-bold"
-                                                onClick={() => downloadCard(`card-${item.id}`, item.topic)}
-                                            >
-                                                📸 Save
-                                            </button>
-                                            <button
-                                                className="btn btn-outline-light btn-sm flex-fill"
-                                                onClick={() => copyText(item.quote)}
-                                            >
-                                                📋 Copy
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                </div>
+                                <tr key={item.id}>
+                                    <td className="text-nowrap text-secondary small">
+                                        {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : 'N/A'}
+                                    </td>
+                                    <td>{item.topic}</td>
+                                    <td>{item.language}</td>
+                                    <td style={{ whiteSpace: 'pre-wrap', minWidth: '300px' }}><small>{item.quote.substring(0, 100)}...</small></td>
+                                    <td>
+                                        <button className="btn btn-sm btn-outline-light me-1" onClick={() => copyText(item.quote)}>Copy</button>
+                                    </td>
+                                </tr>
                             ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
-                            {history.length === 0 && (
-                                <div className="text-center text-white py-5">No quotes generated yet.</div>
-                            )}
+            {/* VIEW 2: GRID (WALL) */}
+            {viewMode === 'grid' && (
+                <div className="row g-4">
+                    {history.map((item) => (
+                        <div className="col-md-6 col-lg-4" key={item.id}>
+                            <div className="d-flex flex-column h-100">
+                                <div
+                                    id={`card-${item.id}`}
+                                    className="card bg-light border-start border-5 border-warning p-4 shadow-sm h-100"
+                                >
+                                    <figure className="text-center mb-0 d-flex flex-column justify-content-center h-100">
+                                        <blockquote className="blockquote">
+                                            <p className="fs-5 fw-medium text-dark" style={{ whiteSpace: 'pre-line' }}>
+                                                {item.quote}
+                                            </p>
+                                        </blockquote>
+                                        <figcaption className="blockquote-footer mt-auto mb-0 pt-3">
+                                            {item.topic} • {item.language} <br />
+                                            <small className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                                {item.timestamp?.seconds ? new Date(item.timestamp.seconds * 1000).toLocaleDateString() : ''}
+                                            </small>
+                                        </figcaption>
+                                    </figure>
+                                </div>
+                                <div className="d-flex gap-2 mt-2">
+                                    <button className="btn btn-success btn-sm flex-fill fw-bold" onClick={() => downloadCard(`card-${item.id}`, item.topic)}>📸 Save</button>
+                                    <button className="btn btn-outline-light btn-sm flex-fill" onClick={() => copyText(item.quote)}>📋 Copy</button>
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </>
+                    ))}
+                </div>
+            )}
+
+            {/* LOADING SPINNER (Only shows when fetching more) */}
+            {loading && (
+                <div className="text-center text-white mt-4 py-3">
+                    <div className="spinner-border text-warning" role="status"></div>
+                    <p className="mt-2 text-white-50">Loading more quotes...</p>
+                </div>
+            )}
+
+            {/* END OF LIST MESSAGE */}
+            {!hasMore && history.length > 0 && (
+                <div className="text-center text-secondary mt-5 mb-5">
+                    <small>— You have reached the end of history —</small>
+                </div>
+            )}
+
+            {!loading && history.length === 0 && (
+                <div className="text-center text-white py-5">No history found.</div>
             )}
         </div>
     );
