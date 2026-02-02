@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import {
-    collection, addDoc, doc, updateDoc, increment,
-    onSnapshot, query, orderBy, limit
+    collection, addDoc, query, orderBy, limit, onSnapshot,
+    // doc, updateDoc, increment // <-- Hidden imports for visitor count
 } from "firebase/firestore";
 import { db } from './firebase';
 import html2canvas from 'html2canvas';
@@ -51,13 +51,15 @@ function Home() {
     const [error, setError] = useState('');
 
     // Data States
-    const [visitorCount, setVisitorCount] = useState(0);
+    // const [visitorCount, setVisitorCount] = useState(0); // <-- HIDDEN: State
     const [recentTopics, setRecentTopics] = useState([]);
 
     const API_KEY = process.env.REACT_APP_GEMINI_KEY;
 
     // --- 1. HANDLE VISITORS & TRENDING TOPICS ---
     useEffect(() => {
+        // --- HIDDEN: VISITOR COUNT LOGIC START ---
+        /*
         // A. VISITOR COUNT --> Session Based
         const statsRef = doc(db, "site_stats", "general");
         const isNewSession = !sessionStorage.getItem("visit_recorded");
@@ -72,6 +74,8 @@ function Home() {
         const unsubStats = onSnapshot(statsRef, (doc) => {
             if (doc.exists()) setVisitorCount(doc.data().visitorCount);
         });
+        */
+        // --- HIDDEN: VISITOR COUNT LOGIC END ---
 
         // B. RECENT TOPICS (Trending)
         const historyRef = collection(db, "generation_history");
@@ -83,7 +87,10 @@ function Home() {
             setRecentTopics([...new Set(topics)]);
         });
 
-        return () => { unsubStats(); unsubHistory(); };
+        return () => { 
+            // unsubStats(); // <-- HIDDEN: Cleanup
+            unsubHistory(); 
+        };
     }, []);
 
     // --- 2. HELPER FUNCTIONS ---
@@ -145,13 +152,15 @@ function Home() {
     return (
         <div className="container mt-4">
 
-            {/* Visitor Badge */}
+            {/* --- HIDDEN: VISITOR BADGE START --- */}
+            {/* 
             <div className="d-flex justify-content-end mb-3">
                 <span className="badge bg-warning text-dark fs-6 shadow-sm">
                     👀 Total Visitors: {visitorCount}
                 </span>
             </div>
-                    
+            */}
+            {/* --- HIDDEN: VISITOR BADGE END --- */}
 
             <div className="row justify-content-center">
                 <div className="col-md-8 col-lg-6">
