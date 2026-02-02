@@ -146,7 +146,7 @@ function Home() {
         <div className="container mt-4">
 
             {/* Visitor Badge */}
-            <div className="d-flex justify-content-end mb-3">
+            <div className="d-flex justify-content-end mb-3" hidden>
                 <span className="badge bg-warning text-dark fs-6 shadow-sm">
                     👀 Total Visitors: {visitorCount}
                 </span>
