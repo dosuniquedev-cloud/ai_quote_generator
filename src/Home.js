@@ -146,11 +146,14 @@ function Home() {
         <div className="container mt-4">
 
             {/* Visitor Badge */}
-            <div className="d-flex justify-content-end mb-3" hidden>
+        {/* change 'false' to your condition, e.g., showBadge */}
+{false && (
+            <div className="d-flex justify-content-end mb-3">
                 <span className="badge bg-warning text-dark fs-6 shadow-sm">
                     👀 Total Visitors: {visitorCount}
                 </span>
             </div>
+                    )}
 
             <div className="row justify-content-center">
                 <div className="col-md-8 col-lg-6">
